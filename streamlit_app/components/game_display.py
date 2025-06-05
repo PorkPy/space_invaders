@@ -15,9 +15,6 @@ class GameDisplay:
         
     def setup_display(self):
         """Setup the display layout"""
-        # Create main game area at the top
-        st.markdown("### 🎮 Space Invaders - AI Playing")
-        
         # Game display and stats side by side
         col1, col2 = st.columns([3, 1])
         
@@ -38,28 +35,23 @@ class GameDisplay:
             return
             
         try:
-            # Use st.image instead of pyplot for better size control
+            # Use st.image for display
+            if len(frame.shape) == 2:
+                from PIL import Image
+                pil_image = Image.fromarray(frame, mode='L')
+            else:
+                from PIL import Image
+                pil_image = Image.fromarray(frame, mode='RGB')
+            
             self.frame_placeholder.image(
-                frame,
+                pil_image,
                 caption="AI Playing Space Invaders",
-                width=300,  # Fixed width - much smaller!
-                channels="RGB" if len(frame.shape) == 3 else "GRAY"
+                width=300,
+                use_container_width=False
             )
             
         except Exception as e:
-            # Fallback to pyplot if st.image fails
-            try:
-                fig, ax = plt.subplots(figsize=(3, 2.5), dpi=100)
-                ax.imshow(frame, cmap='gray' if len(frame.shape) == 2 else None)
-                ax.axis('off')
-                ax.set_title("AI Playing", fontsize=8, pad=5)
-                plt.tight_layout()
-                
-                self.frame_placeholder.pyplot(fig, clear_figure=True, use_container_width=False)
-                plt.close(fig)
-                
-            except Exception as e2:
-                self.frame_placeholder.error(f"Error displaying frame: {e2}")
+            self.frame_placeholder.error(f"Error displaying frame: {e}")
     
     def display_stats(self, stats: dict):
         """Display game statistics"""
@@ -80,12 +72,8 @@ class GameDisplay:
             # Model info
             st.divider()
             st.text("Model Info:")
-            st.text(f"Algorithm: {stats.get('algorithm', 'Unknown')}")
+            st.text(f"Algorithm: {stats.get('algorithm', 'Random Agent')}")
             st.text(f"Actions: {stats.get('action_space_size', 0)}")
-            
-            # Action space info for Space Invaders
-            if stats.get('action_space_size') == 6:
-                st.text("Actions: NOOP, FIRE, RIGHT, LEFT, RIGHTFIRE, LEFTFIRE")
     
     def display_action_info(self, action: int, action_names: Optional[list] = None):
         """Display current action being taken"""
@@ -99,30 +87,33 @@ class GameDisplay:
             st.sidebar.warning(f"Unknown action: {action}")
     
     def show_game_controls(self):
-        """Show game control interface"""
-        st.sidebar.subheader("🎮 Game Controls")
+        """Show game control interface - SINGLE HEADER ONLY"""
+        st.sidebar.subheader("🎮 Space Invaders Demo")
         
-        # Game control buttons
-        col1, col2 = st.sidebar.columns(2)
+        start_demo = st.sidebar.button("🚀 Start AI Demo", use_container_width=True)
         
-        with col1:
-            start_game = st.button("🚀 Start New Game", use_container_width=True)
-            
-        with col2:
-            pause_game = st.button("⏸️ Pause", use_container_width=True)
+        # Demo length controls
+        st.sidebar.markdown("**🎬 Demo Length**")
+        demo_type = st.sidebar.selectbox(
+            "Demo Type",
+            options=["Quick Demo (50 steps)", "Full Game (until death)", "Extended Demo (200 steps)", "Custom Length"],
+            index=1,
+            help="Choose how long the AI should play"
+        )
         
-        # Game settings
-        st.sidebar.subheader("⚙️ Settings")
+        if demo_type == "Custom Length":
+            custom_length = st.sidebar.slider("Steps", min_value=10, max_value=500, value=100)
+        else:
+            custom_length = None
         
+        # Settings
+        st.sidebar.markdown("**⚙️ Settings**")
         deterministic = st.sidebar.checkbox("Deterministic Play", value=True, 
-                                          help="If checked, AI always chooses best action. If unchecked, adds some randomness.")
-        
-        auto_play = st.sidebar.checkbox("Auto Play", value=False,
-                                      help="Automatically play continuously (WARNING: causes page jumping)")
+                                          help="If checked, AI always chooses best action")
         
         return {
-            "start_game": start_game,
-            "pause_game": pause_game,
-            "deterministic": deterministic,
-            "auto_play": auto_play
+            "start_demo": start_demo,
+            "demo_type": demo_type,
+            "custom_length": custom_length,
+            "deterministic": deterministic
         }

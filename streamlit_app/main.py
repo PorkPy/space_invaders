@@ -5,6 +5,7 @@ import streamlit as st
 import time
 import sys
 import os
+import numpy as np  # Added missing import
 from pathlib import Path
 
 # Add project root to path
@@ -35,6 +36,10 @@ def init_session_state():
         st.session_state.game_running = False
     if 'initialization_done' not in st.session_state:
         st.session_state.initialization_done = False
+    if 'auto_play_active' not in st.session_state:
+        st.session_state.auto_play_active = False
+    if 'step_counter' not in st.session_state:
+        st.session_state.step_counter = 0
 
 def initialize_system():
     """Initialize the RL system"""
@@ -59,7 +64,7 @@ def main():
     init_session_state()
     
     # Header
-    st.title("🎮 Space Invaders RL Demo")
+    st.title("🎮 Space Invaders AI Demo")
     st.markdown("**Watch an AI agent play Space Invaders using Deep Q-Learning!**")
     
     # Initialize system
@@ -72,93 +77,134 @@ def main():
     # Game controls
     controls = st.session_state.game_display.show_game_controls()
     
-    # Handle game controls
+    # Handle demo controls
     game_inference = st.session_state.game_inference
     
-    # Start new game
-    if controls["start_game"] or st.session_state.current_observation is None:
-        with st.spinner("🚀 Starting new game..."):
-            observation = game_inference.start_new_game()
-            if observation is not None:
-                st.session_state.current_observation = observation
-                st.session_state.game_running = True
-                st.sidebar.success("New game started!")
-            else:
-                st.sidebar.error("Failed to start game")
+    # Auto-start demo when page loads
+    if st.session_state.current_observation is None and not controls["start_demo"]:
+        st.info("👆 Click 'Start AI Demo' to watch the AI play Space Invaders!")
     
-    # Game loop
-    if st.session_state.current_observation is not None and st.session_state.game_running:
+    # Auto-start demo when page loads OR when button is clicked
+    if controls["start_demo"] or st.session_state.current_observation is None:
         
-        # Get current frame for display
-        frame = game_inference.get_render_frame()
-        stats = game_inference.get_game_stats()
+        # Determine demo length
+        if controls["demo_type"] == "Quick Demo (50 steps)":
+            max_steps = 50
+        elif controls["demo_type"] == "Full Game (until death)":
+            max_steps = 1000  # Max safety limit
+        elif controls["demo_type"] == "Extended Demo (200 steps)":
+            max_steps = 200
+        elif controls["demo_type"] == "Custom Length":
+            max_steps = controls["custom_length"]
+        else:
+            max_steps = 100
         
-        # Display game
-        st.session_state.game_display.display_frame(frame)
-        st.session_state.game_display.display_stats(stats)
-        
-        # Auto-play or manual step
-        if controls["auto_play"] and not stats.get("game_over", False):
-            # Automatic gameplay
-            observation, reward, done, info, action = game_inference.play_step(
-                st.session_state.current_observation,
-                deterministic=controls["deterministic"]
-            )
-            
-            # Display current action
-            st.session_state.game_display.display_action_info(action)
-            
-            if done:
-                st.session_state.game_running = False
-                st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
-            else:
-                st.session_state.current_observation = observation
+        with st.spinner(f"🎬 Recording AI gameplay ({controls['demo_type']})..."):
+            # Start new game
+            observation = game_inference.start_new_game()
+            if observation is None:
+                st.error("Failed to start game")
+                st.stop()
                 
-            # Small delay and rerun for auto-play
-            time.sleep(0.3)
-            st.rerun()
+            st.session_state.current_observation = observation
+            st.session_state.game_running = True
+            st.session_state.step_counter = 0
             
-        elif not controls["auto_play"]:
-            # Manual step control
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("➡️ Take One Step", use_container_width=True):
-                    observation, reward, done, info, action = game_inference.play_step(
-                        st.session_state.current_observation,
-                        deterministic=controls["deterministic"]
+            # Record frames until game ends or max steps reached
+            try:
+                import cv2
+                import tempfile
+                from PIL import Image
+                
+                frames = []
+                current_obs = observation
+                
+                for step in range(max_steps):
+                    if st.session_state.game_running:
+                        # Take game step
+                        observation, reward, done, info, action = game_inference.play_step(
+                            current_obs,
+                            deterministic=controls["deterministic"]
+                        )
+                        
+                        st.session_state.step_counter += 1
+                        
+                        # Get frame after action
+                        frame_after = game_inference.get_render_frame()
+                        frame = frame_after
+                        
+                        if frame is not None:
+                            if len(frame.shape) == 2:
+                                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+                            # Scale to good TV-like proportions
+                            resized_frame = cv2.resize(frame, (320, 200))
+                            frames.append(resized_frame)
+                        
+                        if done:
+                            st.session_state.game_running = False
+                            break
+                        else:
+                            current_obs = observation
+                            st.session_state.current_observation = observation
+                
+                # Create animated GIF
+                if len(frames) >= 2:
+                    # Convert frames to PIL Images
+                    pil_frames = []
+                    for frame in frames:
+                        if frame.dtype != np.uint8:
+                            frame = (frame * 255).astype(np.uint8)
+                        pil_img = Image.fromarray(frame)
+                        pil_frames.append(pil_img)
+                    
+                    # Create temporary GIF file
+                    with tempfile.NamedTemporaryFile(suffix='.gif', delete=False) as f:
+                        gif_path = f.name
+                    
+                    # Save as animated GIF with better settings for fast objects
+                    pil_frames[0].save(
+                        gif_path,
+                        save_all=True,
+                        append_images=pil_frames[1:],
+                        duration=50,  # Faster: 50ms = 20 FPS instead of 100ms
+                        loop=0
                     )
                     
-                    # Display current action
-                    st.session_state.game_display.display_action_info(action)
-                    
-                    if done:
-                        st.session_state.game_running = False
-                        st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
+                    # Display the GIF
+                    if os.path.exists(gif_path) and os.path.getsize(gif_path) > 0:
+                        st.success(f"✅ AI Demo Complete! Played {len(frames)} steps.")
+                        
+                        with open(gif_path, 'rb') as gif_file:
+                            gif_data = gif_file.read()
+                            st.image(gif_data, caption="AI Playing Space Invaders", width=600)  # Much bigger!
+                        
+                        # Show final stats
+                        final_stats = game_inference.get_game_stats()
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("Final Score", final_stats.get('total_reward', 0))
+                        with col2:
+                            st.metric("Steps Played", st.session_state.step_counter)
+                        with col3:
+                            game_status = "Game Over" if not st.session_state.game_running else "Stopped"
+                            st.metric("Status", game_status)
+                        
+                        # Cleanup
+                        if os.path.exists(gif_path):
+                            os.unlink(gif_path)
                     else:
-                        st.session_state.current_observation = observation
-                        st.rerun()
-            
-            with col2:
-                if st.button("🎮 Take 5 Steps", use_container_width=True):
-                    for i in range(5):
-                        if not stats.get("game_over", False):
-                            observation, reward, done, info, action = game_inference.play_step(
-                                st.session_state.current_observation,
-                                deterministic=controls["deterministic"]
-                            )
-                            
-                            if done:
-                                st.session_state.game_running = False
-                                st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
-                                break
-                            else:
-                                st.session_state.current_observation = observation
-                    st.rerun()
+                        st.error("Failed to create demo animation")
+                        
+                else:
+                    st.warning("Not enough frames captured for demo")
+                    
+            except Exception as e:
+                st.error(f"Demo failed: {e}")
     
     # Information section
-    with st.expander("ℹ️ About This Demo"):
+    with st.expander("ℹ️ About This AI Demo"):
         st.markdown("""
-        This demo showcases a **Deep Q-Network (DQN)** agent trained to play Space Invaders.
+        This demo showcases a **Deep Q-Network (DQN)** agent playing Space Invaders.
         
         **How it works:**
         - The AI observes the game screen (preprocessed to 84x84 grayscale)
@@ -166,18 +212,14 @@ def main():
         - It chooses the action with the highest expected reward
         - The model was trained using reinforcement learning on millions of game frames
         
-        **Controls:**
-        - **Deterministic**: AI always picks the best action
-        - **Non-deterministic**: AI adds some exploration/randomness
-        - **Auto Play**: Watch the AI play continuously
-        - **Manual Step**: Control the pace yourself
+        **Current Model:**
+        - **Algorithm**: Deep Q-Network (DQN) 
+        - **Framework**: Stable-Baselines3
+        - **Environment**: Atari Space Invaders
+        - **Actions**: 6 possible actions (NOOP, FIRE, LEFT, RIGHT, etc.)
         
-        **Model Details:**
-        - Algorithm: Deep Q-Network (DQN)
-        - Framework: Stable-Baselines3
-        - Environment: Atari Space Invaders
-        - Input: 4 stacked frames (84x84 grayscale)
-        - Actions: 6 possible actions (NOOP, FIRE, LEFT, RIGHT, etc.)
+        **Note**: This demo uses a random agent as the pre-trained model had compatibility issues.
+        The random agent demonstrates the game mechanics while a proper trained model is being prepared.
         """)
 
 if __name__ == "__main__":

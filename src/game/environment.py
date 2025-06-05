@@ -26,16 +26,20 @@ class SpaceInvadersEnvironment:
             # Create base environment
             self.env = gym.make(
                 GAME_CONFIG["environment_name"],
-                render_mode=GAME_CONFIG["render_mode"]
+                render_mode=GAME_CONFIG["render_mode"],
+                max_episode_steps=None  # Remove step limit
             )
             
+            # Try WITHOUT AtariPreprocessing to see raw game
+            # Comment out preprocessing to see if shots become visible
+            """
             # Apply Atari wrappers for preprocessing
             self.env = gym.wrappers.AtariPreprocessing(
                 self.env,
                 noop_max=30,
                 frame_skip=GAME_CONFIG["frame_skip"],
                 screen_size=GAME_CONFIG["screen_size"],
-                terminal_on_life_loss=True,
+                terminal_on_life_loss=False,  # Changed: Don't end on life loss
                 grayscale_obs=True,
                 grayscale_newaxis=False,
                 scale_obs=True
@@ -46,8 +50,9 @@ class SpaceInvadersEnvironment:
                 self.env, 
                 GAME_CONFIG["frame_stack"]
             )
+            """
             
-            logger.info("Environment created successfully")
+            logger.info("Environment created successfully (RAW - no preprocessing)")
             return True
             
         except Exception as e:

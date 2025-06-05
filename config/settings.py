@@ -15,9 +15,9 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 # Game settings
 GAME_CONFIG = {
-    "environment_name": "ALE/SpaceInvaders-v5",  # Use base environment without NoFrameskip
+    "environment_name": "SpaceInvaders-v0",  # Try the original v0 for more authentic behavior
     "render_mode": "rgb_array",
-    "frame_skip": 1,  # Reduce frame skip to avoid conflict
+    "frame_skip": 1,
     "screen_size": 84,
     "frame_stack": 4,
 }
