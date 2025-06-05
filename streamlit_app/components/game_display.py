@@ -38,18 +38,28 @@ class GameDisplay:
             return
             
         try:
-            # Create figure with smaller sizing
-            fig, ax = plt.subplots(figsize=(4, 3))  # Much smaller!
-            ax.imshow(frame, cmap='gray' if len(frame.shape) == 2 else None)
-            ax.axis('off')
-            ax.set_title("Space Invaders - AI Playing", fontsize=10, pad=10)
-            
-            # Display in Streamlit
-            self.frame_placeholder.pyplot(fig, clear_figure=True)
-            plt.close(fig)  # Important: close figure to prevent memory leaks
+            # Use st.image instead of pyplot for better size control
+            self.frame_placeholder.image(
+                frame,
+                caption="AI Playing Space Invaders",
+                width=300,  # Fixed width - much smaller!
+                channels="RGB" if len(frame.shape) == 3 else "GRAY"
+            )
             
         except Exception as e:
-            self.frame_placeholder.error(f"Error displaying frame: {e}")
+            # Fallback to pyplot if st.image fails
+            try:
+                fig, ax = plt.subplots(figsize=(3, 2.5), dpi=100)
+                ax.imshow(frame, cmap='gray' if len(frame.shape) == 2 else None)
+                ax.axis('off')
+                ax.set_title("AI Playing", fontsize=8, pad=5)
+                plt.tight_layout()
+                
+                self.frame_placeholder.pyplot(fig, clear_figure=True, use_container_width=False)
+                plt.close(fig)
+                
+            except Exception as e2:
+                self.frame_placeholder.error(f"Error displaying frame: {e2}")
     
     def display_stats(self, stats: dict):
         """Display game statistics"""
