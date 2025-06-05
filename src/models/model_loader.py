@@ -5,8 +5,11 @@ import logging
 import requests
 from pathlib import Path
 from typing import Optional
+import ale_py  # Import first to register ALE environments
 from stable_baselines3 import DQN
 from config.settings import MODEL_CONFIG
+import gymnasium as gym
+import gym as old_gym  # Some models need the old gym interface
 
 logger = logging.getLogger(__name__)
 

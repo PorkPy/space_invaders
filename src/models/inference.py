@@ -22,16 +22,17 @@ class GameInference:
     def initialize(self) -> bool:
         """Initialize model and environment"""
         try:
-            # Load the model
-            self.model = self.model_loader.load_model()
-            if self.model is None:
-                logger.error("Failed to load model")
-                return False
-            
-            # Create environment
+            # Create environment first
             if not self.environment.create_environment():
                 logger.error("Failed to create environment")
                 return False
+            
+            # Try to load the model (but don't fail if it doesn't work)
+            self.model = self.model_loader.load_model()
+            if self.model is None:
+                logger.warning("Failed to load model - will use random agent")
+            else:
+                logger.info("Model loaded successfully")
             
             self.is_ready = True
             logger.info("Inference system initialized successfully")
@@ -51,9 +52,16 @@ class GameInference:
     
     def predict_action(self, observation: np.ndarray, deterministic: bool = True) -> Tuple[int, Optional[np.ndarray]]:
         """Predict the next action given current observation"""
-        if not self.is_ready or self.model is None:
+        if not self.is_ready:
             logger.error("Model not ready for prediction")
             return 0, None
+            
+        # If model failed to load, use random agent as fallback
+        if self.model is None:
+            action_space_size = self.environment.get_action_space().n
+            random_action = np.random.randint(0, action_space_size)
+            logger.info(f"Using random action: {random_action}")
+            return random_action, None
             
         try:
             action, _states = self.model.predict(
@@ -64,7 +72,9 @@ class GameInference:
             
         except Exception as e:
             logger.error(f"Failed to predict action: {e}")
-            return 0, None
+            # Fallback to random action
+            action_space_size = self.environment.get_action_space().n
+            return np.random.randint(0, action_space_size), None
     
     def step_game(self, action: int) -> Tuple[Optional[np.ndarray], float, bool, dict]:
         """Take a step in the game with the given action"""

@@ -114,26 +114,45 @@ def main():
             else:
                 st.session_state.current_observation = observation
                 
-            # Small delay for visualization
-            time.sleep(0.1)
+            # Small delay and rerun for auto-play
+            time.sleep(0.3)
             st.rerun()
             
         elif not controls["auto_play"]:
             # Manual step control
-            if st.sidebar.button("➡️ Take One Step", use_container_width=True):
-                observation, reward, done, info, action = game_inference.play_step(
-                    st.session_state.current_observation,
-                    deterministic=controls["deterministic"]
-                )
-                
-                # Display current action
-                st.session_state.game_display.display_action_info(action)
-                
-                if done:
-                    st.session_state.game_running = False
-                    st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
-                else:
-                    st.session_state.current_observation = observation
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("➡️ Take One Step", use_container_width=True):
+                    observation, reward, done, info, action = game_inference.play_step(
+                        st.session_state.current_observation,
+                        deterministic=controls["deterministic"]
+                    )
+                    
+                    # Display current action
+                    st.session_state.game_display.display_action_info(action)
+                    
+                    if done:
+                        st.session_state.game_running = False
+                        st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
+                    else:
+                        st.session_state.current_observation = observation
+                        st.rerun()
+            
+            with col2:
+                if st.button("🎮 Take 5 Steps", use_container_width=True):
+                    for i in range(5):
+                        if not stats.get("game_over", False):
+                            observation, reward, done, info, action = game_inference.play_step(
+                                st.session_state.current_observation,
+                                deterministic=controls["deterministic"]
+                            )
+                            
+                            if done:
+                                st.session_state.game_running = False
+                                st.sidebar.warning("Game Over! Click 'Start New Game' to play again.")
+                                break
+                            else:
+                                st.session_state.current_observation = observation
                     st.rerun()
     
     # Information section

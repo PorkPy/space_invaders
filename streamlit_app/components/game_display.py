@@ -15,15 +15,17 @@ class GameDisplay:
         
     def setup_display(self):
         """Setup the display layout"""
-        # Create two columns: game display and stats
+        # Create main game area at the top
+        st.markdown("### 🎮 Space Invaders - AI Playing")
+        
+        # Game display and stats side by side
         col1, col2 = st.columns([3, 1])
         
         with col1:
-            st.subheader("🎮 Live Gameplay")
             self.frame_placeholder = st.empty()
             
         with col2:
-            st.subheader("📊 Game Stats")
+            st.markdown("**📊 Stats**")
             self.stats_placeholder = st.empty()
     
     def display_frame(self, frame: Optional[np.ndarray]):
@@ -36,11 +38,11 @@ class GameDisplay:
             return
             
         try:
-            # Create figure with proper sizing
-            fig, ax = plt.subplots(figsize=(8, 6))
+            # Create figure with smaller sizing
+            fig, ax = plt.subplots(figsize=(4, 3))  # Much smaller!
             ax.imshow(frame, cmap='gray' if len(frame.shape) == 2 else None)
             ax.axis('off')
-            ax.set_title("Space Invaders - AI Playing", fontsize=14, pad=20)
+            ax.set_title("Space Invaders - AI Playing", fontsize=10, pad=10)
             
             # Display in Streamlit
             self.frame_placeholder.pyplot(fig, clear_figure=True)
@@ -106,7 +108,7 @@ class GameDisplay:
                                           help="If checked, AI always chooses best action. If unchecked, adds some randomness.")
         
         auto_play = st.sidebar.checkbox("Auto Play", value=False,
-                                      help="Automatically play continuously")
+                                      help="Automatically play continuously (WARNING: causes page jumping)")
         
         return {
             "start_game": start_game,

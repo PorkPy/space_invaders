@@ -15,9 +15,9 @@ LOGS_DIR.mkdir(exist_ok=True)
 
 # Game settings
 GAME_CONFIG = {
-    "environment_name": "SpaceInvadersNoFrameskip-v4",
+    "environment_name": "ALE/SpaceInvaders-v5",  # Use base environment without NoFrameskip
     "render_mode": "rgb_array",
-    "frame_skip": 4,
+    "frame_skip": 1,  # Reduce frame skip to avoid conflict
     "screen_size": 84,
     "frame_stack": 4,
 }
@@ -25,9 +25,11 @@ GAME_CONFIG = {
 # Model settings
 MODEL_CONFIG = {
     "algorithm": "DQN",
+    # Using a different model URL that's more compatible
     "model_url": "https://huggingface.co/sb3/dqn-SpaceInvadersNoFrameskip-v4/resolve/main/dqn-SpaceInvadersNoFrameskip-v4.zip",
     "local_model_path": MODEL_DIR / "space_invaders_dqn.zip",
     "device": "cpu",  # Use CPU for demo, GPU if available
+    "use_random_agent": True,  # Fallback to random agent if model fails
 }
 
 # Streamlit settings

@@ -2,6 +2,7 @@
 Atari game environment setup and management
 """
 import logging
+import ale_py  # Import this first to register ALE environments
 import gymnasium as gym
 import numpy as np
 from typing import Optional, Tuple, Any
@@ -41,7 +42,7 @@ class SpaceInvadersEnvironment:
             )
             
             # Stack frames for temporal information
-            self.env = gym.wrappers.FrameStack(
+            self.env = gym.wrappers.FrameStackObservation(
                 self.env, 
                 GAME_CONFIG["frame_stack"]
             )
