@@ -23,6 +23,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# Hide sidebar completely
+st.markdown("""
+<style>
+    .css-1d391kg {display: none}
+    .css-1egp75f {display: none}
+    section[data-testid="stSidebar"] {display: none}
+    .css-164nlkn {display: none}
+</style>
+""", unsafe_allow_html=True)
+
 def init_session_state():
     """Initialize Streamlit session state and clean up old files"""
     if 'multi_game_manager' not in st.session_state:

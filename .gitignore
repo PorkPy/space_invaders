@@ -75,7 +75,6 @@ Thumbs.db
 *.swo
 
 # Data files (if you add datasets)
-data/
 *.csv
 *.json
 *.parquet
