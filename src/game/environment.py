@@ -2,6 +2,7 @@
 Atari game environment setup and management - Generic for all games
 """
 import logging
+import traceback
 import ale_py  # Import this first to register ALE environments
 import gymnasium as gym
 import numpy as np
@@ -24,36 +25,49 @@ class AtariEnvironment:
     def create_environment(self) -> bool:
         """Create and configure the Atari environment"""
         try:
-            # Create base environment
+            logger.info(f"Creating environment: {self.environment_name}")
+            
+            # Create base environment WITHOUT frame skipping to avoid conflicts
             self.env = gym.make(
                 self.environment_name,
                 render_mode=self.render_mode,
+                frameskip=1,  # Disable frame skipping in base env
                 max_episode_steps=None  # Remove step limit
             )
+            logger.info(f"Base environment created: {self.environment_name}")
             
+            # Try WITHOUT AtariPreprocessing to see raw game like Space Invaders fix
+            # Comment out preprocessing to see if shots/objects become visible
+            """
             # Use basic preprocessing for better compatibility across games
+            logger.info("Applying AtariPreprocessing...")
             self.env = gym.wrappers.AtariPreprocessing(
                 self.env,
                 noop_max=30,
-                frame_skip=4,
+                frame_skip=4,  # Now we can safely apply frame skipping
                 screen_size=84,
                 terminal_on_life_loss=False,
                 grayscale_obs=True,
                 grayscale_newaxis=False,
                 scale_obs=True
             )
+            logger.info("AtariPreprocessing applied")
             
             # Stack frames for temporal information
+            logger.info("Applying FrameStackObservation...")
             self.env = gym.wrappers.FrameStackObservation(
                 self.env, 
                 4
             )
+            logger.info("FrameStackObservation applied")
+            """
             
-            logger.info(f"Environment created successfully: {self.environment_name}")
+            logger.info(f"Environment created successfully (RAW - no preprocessing): {self.environment_name}")
             return True
             
         except Exception as e:
             logger.error(f"Failed to create environment {self.environment_name}: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
     
     def reset(self) -> Optional[np.ndarray]:

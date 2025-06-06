@@ -69,36 +69,42 @@ def test_single_environment():
         st.success("✅ AtariEnvironment created")
         
         st.info("Creating gymnasium environment...")
-        if env.create_environment():
-            st.success("✅ Gymnasium environment created successfully")
-            
-            st.info("Testing environment reset...")
-            obs = env.reset()
-            if obs is not None:
-                st.success(f"✅ Environment reset successful, observation shape: {obs.shape}")
+        try:
+            result = env.create_environment()
+            if result:
+                st.success("✅ Gymnasium environment created successfully")
                 
-                st.info("Testing environment step...")
-                obs2, reward, done, info = env.step(1)  # FIRE action
-                if obs2 is not None:
-                    st.success(f"✅ Environment step successful, reward: {reward}")
+                st.info("Testing environment reset...")
+                obs = env.reset()
+                if obs is not None:
+                    st.success(f"✅ Environment reset successful, observation shape: {obs.shape}")
+                    
+                    st.info("Testing environment step...")
+                    obs2, reward, done, info = env.step(1)  # FIRE action
+                    if obs2 is not None:
+                        st.success(f"✅ Environment step successful, reward: {reward}")
+                    else:
+                        st.error("❌ Environment step returned None observation")
+                    
+                    st.info("Testing environment render...")
+                    frame = env.render()
+                    if frame is not None:
+                        st.success(f"✅ Environment render successful, frame shape: {frame.shape}")
+                    else:
+                        st.error("❌ Environment render returned None")
+                    
                 else:
-                    st.error("❌ Environment step returned None observation")
+                    st.error("❌ Environment reset returned None")
                 
-                st.info("Testing environment render...")
-                frame = env.render()
-                if frame is not None:
-                    st.success(f"✅ Environment render successful, frame shape: {frame.shape}")
-                else:
-                    st.error("❌ Environment render returned None")
-                
+                env.close()
+                st.success("✅ Environment closed successfully")
+                return True
             else:
-                st.error("❌ Environment reset returned None")
-            
-            env.close()
-            st.success("✅ Environment closed successfully")
-            return True
-        else:
-            st.error("❌ Failed to create gymnasium environment")
+                st.error("❌ Failed to create gymnasium environment")
+                return False
+        except Exception as e:
+            st.error(f"❌ Environment creation failed with exception: {e}")
+            st.code(traceback.format_exc())
             return False
             
     except Exception as e:
