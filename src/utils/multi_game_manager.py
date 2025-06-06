@@ -1,5 +1,5 @@
 """
-Multi-game management for grid display
+Multi-game management for grid display - Fixed version
 """
 import logging
 import numpy as np
@@ -34,15 +34,10 @@ class MultiGameManager:
             try:
                 # Create game instance with specific environment
                 game_config = GAMES_CONFIG[game_id]
-                game_inference = GameInference()
+                game_inference = GameInference(environment_name=game_config["env_name"])
                 
-                # Override the environment name for this game
-                from config.settings import GAME_CONFIG
-                temp_config = GAME_CONFIG.copy()
-                temp_config["environment_name"] = game_config["env_name"]
-                
-                # Initialize with custom config
-                if self._initialize_single_game(game_inference, temp_config):
+                # Initialize the game
+                if game_inference.initialize():
                     self.game_instances[game_id] = game_inference
                     self.game_running[game_id] = False
                     self.step_counts[game_id] = 0
@@ -57,28 +52,9 @@ class MultiGameManager:
         logger.info(f"Successfully initialized {success_count}/{len(self.selected_games)} games")
         return success_count > 0
     
-    def _initialize_single_game(self, game_inference: GameInference, config: dict) -> bool:
-        """Initialize a single game with custom config"""
-        try:
-            # Temporarily override the config
-            from config import settings
-            original_config = settings.GAME_CONFIG.copy()
-            settings.GAME_CONFIG.update(config)
-            
-            # Initialize
-            success = game_inference.initialize()
-            
-            # Restore original config
-            settings.GAME_CONFIG = original_config
-            
-            return success
-        except Exception as e:
-            logger.error(f"Failed to initialize single game: {e}")
-            return False
-    
-    def start_all_games(self) -> Dict[str, bool]:
+    def start_all_games(self) -> bool:
         """Start all games and return success status"""
-        results = {}
+        success_count = 0
         
         for game_id, game_instance in self.game_instances.items():
             try:
@@ -95,15 +71,16 @@ class MultiGameManager:
                     
                     # Get initial stats
                     self.game_stats[game_id] = game_instance.get_game_stats()
-                    results[game_id] = True
+                    success_count += 1
+                    logger.info(f"Started {GAMES_CONFIG[game_id]['display_name']}")
                 else:
-                    results[game_id] = False
+                    logger.error(f"Failed to start {game_id}")
                     
             except Exception as e:
                 logger.error(f"Failed to start {game_id}: {e}")
-                results[game_id] = False
         
-        return results
+        logger.info(f"Successfully started {success_count}/{len(self.game_instances)} games")
+        return success_count > 0
     
     def step_all_games(self, deterministic: bool = True) -> int:
         """Take one step in all running games, return number of active games"""
@@ -140,6 +117,7 @@ class MultiGameManager:
                         if new_obs is not None:
                             self.game_observations[game_id] = new_obs
                             self.step_counts[game_id] = 0
+                            active_games += 1
                         else:
                             self.game_running[game_id] = False
                     else:
@@ -157,17 +135,35 @@ class MultiGameManager:
     def _process_frame(self, frame: np.ndarray, game_id: str) -> np.ndarray:
         """Process frame for grid display"""
         try:
+            if frame is None:
+                return None
+                
+            # Handle different frame formats
             if len(frame.shape) == 2:
+                # Grayscale to RGB
                 frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2RGB)
+            elif len(frame.shape) == 3 and frame.shape[2] == 1:
+                # Single channel to RGB
+                frame = np.repeat(frame, 3, axis=2)
+            
+            # Ensure uint8 format
+            if frame.dtype != np.uint8:
+                if frame.max() <= 1.0:
+                    frame = (frame * 255).astype(np.uint8)
+                else:
+                    frame = frame.astype(np.uint8)
             
             # Resize to grid size
             target_size = GAMES_CONFIG[game_id]["grid_size"]
             processed_frame = cv2.resize(frame, target_size)
             
             return processed_frame
+            
         except Exception as e:
             logger.error(f"Error processing frame for {game_id}: {e}")
-            return frame
+            # Return a black frame as fallback
+            target_size = GAMES_CONFIG[game_id]["grid_size"]
+            return np.zeros((target_size[1], target_size[0], 3), dtype=np.uint8)
     
     def get_game_frame(self, game_id: str) -> Optional[np.ndarray]:
         """Get current frame for a specific game"""
@@ -186,8 +182,8 @@ class MultiGameManager:
         for game_instance in self.game_instances.values():
             try:
                 game_instance.cleanup()
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Error during cleanup: {e}")
         
         self.game_instances.clear()
         self.game_frames.clear()
@@ -195,3 +191,5 @@ class MultiGameManager:
         self.game_observations.clear()
         self.game_running.clear()
         self.step_counts.clear()
+        
+        logger.info("Multi-game manager cleaned up")

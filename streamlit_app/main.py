@@ -1,5 +1,5 @@
 """
-Main Streamlit application for Space Invaders RL Demo
+Main Streamlit application for Space Invaders RL Demo - Now with Multi-Game Grid
 """
 import streamlit as st
 import time
@@ -18,8 +18,8 @@ from streamlit_app.components.game_display import GameDisplay
 
 # Page configuration
 st.set_page_config(
-    page_title=STREAMLIT_CONFIG["page_title"],
-    page_icon=STREAMLIT_CONFIG["page_icon"],
+    page_title="Atari RL Demo Suite",
+    page_icon="🎮",
     layout=STREAMLIT_CONFIG["layout"],
     initial_sidebar_state=STREAMLIT_CONFIG["initial_sidebar_state"]
 )
@@ -47,7 +47,8 @@ def initialize_system():
         return True
         
     with st.spinner("🤖 Loading AI model and initializing game environment..."):
-        game_inference = GameInference()
+        # Default to Space Invaders for single game demo
+        game_inference = GameInference("SpaceInvaders-v0")
         
         if game_inference.initialize():
             st.session_state.game_inference = game_inference
@@ -58,13 +59,13 @@ def initialize_system():
             st.error("❌ Failed to initialize system. Please check the logs.")
             return False
 
-def main():
-    """Main application function"""
+def show_single_game_demo():
+    """Show the single Space Invaders demo"""
     # Initialize session state
     init_session_state()
     
     # Header
-    st.title("🎮 Space Invaders AI Demo")
+    st.title("👾 Space Invaders AI Demo")
     st.markdown("**Watch an AI agent play Space Invaders using Deep Q-Learning!**")
     
     # Initialize system
@@ -200,27 +201,53 @@ def main():
                     
             except Exception as e:
                 st.error(f"Demo failed: {e}")
+
+def main():
+    """Main application function with navigation"""
     
-    # Information section
-    with st.expander("ℹ️ About This AI Demo"):
-        st.markdown("""
-        This demo showcases a **Deep Q-Network (DQN)** agent playing Space Invaders.
+    # Sidebar navigation
+    st.sidebar.title("🎮 Atari RL Demo Suite")
+    
+    page = st.sidebar.selectbox(
+        "Choose Demo Type",
+        [
+            "👾 Single Game (Space Invaders)",
+            "🎯 Multi-Game Grid"
+        ]
+    )
+    
+    if page == "👾 Single Game (Space Invaders)":
+        show_single_game_demo()
         
-        **How it works:**
-        - The AI observes the game screen (preprocessed to 84x84 grayscale)
-        - It uses a neural network to estimate the value of each possible action
-        - It chooses the action with the highest expected reward
-        - The model was trained using reinforcement learning on millions of game frames
-        
-        **Current Model:**
-        - **Algorithm**: Deep Q-Network (DQN) 
-        - **Framework**: Stable-Baselines3
-        - **Environment**: Atari Space Invaders
-        - **Actions**: 6 possible actions (NOOP, FIRE, LEFT, RIGHT, etc.)
-        
-        **Note**: This demo uses a random agent as the pre-trained model had compatibility issues.
-        The random agent demonstrates the game mechanics while a proper trained model is being prepared.
-        """)
+        # Information section
+        with st.expander("ℹ️ About This AI Demo"):
+            st.markdown("""
+            This demo showcases a **Deep Q-Network (DQN)** agent playing Space Invaders.
+            
+            **How it works:**
+            - The AI observes the game screen (preprocessed to 84x84 grayscale)
+            - It uses a neural network to estimate the value of each possible action
+            - It chooses the action with the highest expected reward
+            - The model was trained using reinforcement learning on millions of game frames
+            
+            **Current Model:**
+            - **Algorithm**: Deep Q-Network (DQN) 
+            - **Framework**: Stable-Baselines3
+            - **Environment**: Atari Space Invaders
+            - **Actions**: 6 possible actions (NOOP, FIRE, LEFT, RIGHT, etc.)
+            
+            **Note**: This demo uses a random agent as the pre-trained model had compatibility issues.
+            The random agent demonstrates the game mechanics while a proper trained model is being prepared.
+            """)
+    
+    elif page == "🎯 Multi-Game Grid":
+        # Import and show multi-game grid
+        try:
+            from streamlit_app.pages.multi_game_grid import show
+            show()
+        except ImportError as e:
+            st.error(f"Failed to load multi-game grid: {e}")
+            st.info("Make sure all dependencies are installed and the multi_game_grid.py file exists.")
 
 if __name__ == "__main__":
     main()

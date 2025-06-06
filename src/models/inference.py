@@ -1,21 +1,22 @@
 """
-Model inference and prediction logic
+Model inference and prediction logic - Generic for all Atari games
 """
 import logging
 import numpy as np
 from typing import Optional, Tuple
 from stable_baselines3 import DQN
 from src.models.model_loader import ModelLoader
-from src.game.environment import SpaceInvadersEnvironment
+from src.game.environment import AtariEnvironment
 
 logger = logging.getLogger(__name__)
 
 class GameInference:
     """Handles RL model inference for game playing"""
     
-    def __init__(self):
+    def __init__(self, environment_name: str = "SpaceInvaders-v0"):
+        self.environment_name = environment_name
         self.model_loader = ModelLoader()
-        self.environment = SpaceInvadersEnvironment()
+        self.environment = AtariEnvironment(environment_name)
         self.model: Optional[DQN] = None
         self.is_ready = False
         
@@ -24,22 +25,23 @@ class GameInference:
         try:
             # Create environment first
             if not self.environment.create_environment():
-                logger.error("Failed to create environment")
+                logger.error(f"Failed to create environment: {self.environment_name}")
                 return False
             
             # Try to load the model (but don't fail if it doesn't work)
-            self.model = self.model_loader.load_model()
+            # For multi-game demo, we'll use random agents for simplicity
+            self.model = None  # self.model_loader.load_model()
             if self.model is None:
-                logger.warning("Failed to load model - will use random agent")
+                logger.info(f"Using random agent for {self.environment_name}")
             else:
-                logger.info("Model loaded successfully")
+                logger.info(f"Model loaded successfully for {self.environment_name}")
             
             self.is_ready = True
-            logger.info("Inference system initialized successfully")
+            logger.info(f"Inference system initialized successfully: {self.environment_name}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to initialize inference system: {e}")
+            logger.error(f"Failed to initialize inference system for {self.environment_name}: {e}")
             return False
     
     def start_new_game(self) -> Optional[np.ndarray]:
@@ -56,12 +58,22 @@ class GameInference:
             logger.error("Model not ready for prediction")
             return 0, None
             
-        # If model failed to load, use random agent as fallback
+        # For multi-game demo, use intelligent random agent
         if self.model is None:
             action_space_size = self.environment.get_action_space().n
-            random_action = np.random.randint(0, action_space_size)
-            logger.info(f"Using random action: {random_action}")
-            return random_action, None
+            
+            # Simple heuristic: bias towards action (FIRE) for shooting games
+            if "SpaceInvaders" in self.environment_name or "Asteroids" in self.environment_name:
+                # 40% chance of firing, 60% other actions
+                if np.random.random() < 0.4:
+                    action = 1  # FIRE action in most Atari games
+                else:
+                    action = np.random.randint(0, action_space_size)
+            else:
+                # Pure random for other games
+                action = np.random.randint(0, action_space_size)
+                
+            return action, None
             
         try:
             action, _states = self.model.predict(
@@ -110,12 +122,12 @@ class GameInference:
         
         return {
             **env_stats,
-            "model_status": model_info.get("status", "unknown"),
-            "algorithm": model_info.get("algorithm", "unknown")
+            "model_status": "random_agent",
+            "algorithm": "Random"
         }
     
     def cleanup(self):
         """Clean up resources"""
         if self.environment:
             self.environment.close()
-        logger.info("Inference system cleaned up")
+        logger.info(f"Inference system cleaned up: {self.environment_name}")

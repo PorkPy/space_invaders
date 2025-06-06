@@ -1,19 +1,20 @@
 """
-Atari game environment setup and management
+Atari game environment setup and management - Generic for all games
 """
 import logging
 import ale_py  # Import this first to register ALE environments
 import gymnasium as gym
 import numpy as np
 from typing import Optional, Tuple, Any
-from config.settings import GAME_CONFIG
 
 logger = logging.getLogger(__name__)
 
-class SpaceInvadersEnvironment:
-    """Manages the Space Invaders game environment"""
+class AtariEnvironment:
+    """Manages any Atari game environment"""
     
-    def __init__(self):
+    def __init__(self, environment_name: str = "SpaceInvaders-v0", render_mode: str = "rgb_array"):
+        self.environment_name = environment_name
+        self.render_mode = render_mode
         self.env: Optional[gym.Env] = None
         self.current_obs: Optional[np.ndarray] = None
         self.total_reward = 0
@@ -25,21 +26,18 @@ class SpaceInvadersEnvironment:
         try:
             # Create base environment
             self.env = gym.make(
-                GAME_CONFIG["environment_name"],
-                render_mode=GAME_CONFIG["render_mode"],
+                self.environment_name,
+                render_mode=self.render_mode,
                 max_episode_steps=None  # Remove step limit
             )
             
-            # Try WITHOUT AtariPreprocessing to see raw game
-            # Comment out preprocessing to see if shots become visible
-            """
-            # Apply Atari wrappers for preprocessing
+            # Use basic preprocessing for better compatibility across games
             self.env = gym.wrappers.AtariPreprocessing(
                 self.env,
                 noop_max=30,
-                frame_skip=GAME_CONFIG["frame_skip"],
-                screen_size=GAME_CONFIG["screen_size"],
-                terminal_on_life_loss=False,  # Changed: Don't end on life loss
+                frame_skip=4,
+                screen_size=84,
+                terminal_on_life_loss=False,
                 grayscale_obs=True,
                 grayscale_newaxis=False,
                 scale_obs=True
@@ -48,15 +46,14 @@ class SpaceInvadersEnvironment:
             # Stack frames for temporal information
             self.env = gym.wrappers.FrameStackObservation(
                 self.env, 
-                GAME_CONFIG["frame_stack"]
+                4
             )
-            """
             
-            logger.info("Environment created successfully (RAW - no preprocessing)")
+            logger.info(f"Environment created successfully: {self.environment_name}")
             return True
             
         except Exception as e:
-            logger.error(f"Failed to create environment: {e}")
+            logger.error(f"Failed to create environment {self.environment_name}: {e}")
             return False
     
     def reset(self) -> Optional[np.ndarray]:
@@ -70,11 +67,11 @@ class SpaceInvadersEnvironment:
             self.total_reward = 0
             self.episode_steps = 0
             self.game_over = False
-            logger.info("Environment reset successfully")
+            logger.debug(f"Environment reset successfully: {self.environment_name}")
             return self.current_obs
             
         except Exception as e:
-            logger.error(f"Failed to reset environment: {e}")
+            logger.error(f"Failed to reset environment {self.environment_name}: {e}")
             return None
     
     def step(self, action: int) -> Tuple[Optional[np.ndarray], float, bool, dict]:
@@ -94,7 +91,7 @@ class SpaceInvadersEnvironment:
             return obs, reward, self.game_over, info
             
         except Exception as e:
-            logger.error(f"Failed to step environment: {e}")
+            logger.error(f"Failed to step environment {self.environment_name}: {e}")
             return None, 0.0, True, {}
     
     def get_action_space(self) -> Optional[gym.Space]:
@@ -117,7 +114,7 @@ class SpaceInvadersEnvironment:
         try:
             return self.env.render()
         except Exception as e:
-            logger.error(f"Failed to render environment: {e}")
+            logger.error(f"Failed to render environment {self.environment_name}: {e}")
             return None
     
     def get_game_stats(self) -> dict:
@@ -126,6 +123,7 @@ class SpaceInvadersEnvironment:
             "total_reward": self.total_reward,
             "episode_steps": self.episode_steps,
             "game_over": self.game_over,
+            "environment_name": self.environment_name,
             "action_space_size": self.env.action_space.n if self.env else 0
         }
     
@@ -133,4 +131,12 @@ class SpaceInvadersEnvironment:
         """Clean up the environment"""
         if self.env is not None:
             self.env.close()
-            logger.info("Environment closed")
+            logger.debug(f"Environment closed: {self.environment_name}")
+
+
+# Legacy compatibility class
+class SpaceInvadersEnvironment(AtariEnvironment):
+    """Legacy compatibility wrapper for Space Invaders"""
+    
+    def __init__(self):
+        super().__init__("SpaceInvaders-v0", "rgb_array")
