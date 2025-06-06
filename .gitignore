@@ -112,4 +112,5 @@ coverage.xml
 dmypy.json
 
 # gif files from game play
-.gif
+*.gif
+streamlit_app/temp_gif/*.gif
