@@ -110,3 +110,6 @@ coverage.xml
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+# gif files from game play
+.gif
