@@ -80,3 +80,4 @@ class ModelLoader:
             "device": MODEL_CONFIG["device"],
             "model_path": str(self.model_path),
         }
+    

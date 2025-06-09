@@ -50,6 +50,7 @@ models/
 *.pt
 *.h5
 *.hdf5
+!models/*.py
 
 # Logs
 logs/
