@@ -43,13 +43,13 @@ space-invaders/
 .ipynb_checkpoints
 
 # Model files (large files)
-models/
-*.zip
-*.pkl
-*.pth
-*.pt
-*.h5
-*.hdf5
+
+models/*.zip
+models/*.pkl
+models/*.pth
+models/*.pt
+models/*.h5
+models/*.hdf5
 !models/*.py
 
 # Logs
