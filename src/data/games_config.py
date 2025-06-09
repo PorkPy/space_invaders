@@ -1,8 +1,8 @@
 """
-Configuration for multiple Atari games - Updated versions with new games
+Configuration for multiple Atari games - 6 games for complete screen
 """
 
-# Available games configuration with better environment versions
+# Available games configuration with 6 games for full grid
 GAMES_CONFIG = {
     "space_invaders": {
         "env_name": "SpaceInvaders-v4",
@@ -51,6 +51,14 @@ GAMES_CONFIG = {
         "description": "Bug shooter defense",
         "grid_size": (320, 200),
         "color": "#9C27B0"
+    },
+    "qbert": {
+        "env_name": "Qbert-v4",
+        "display_name": "Q*bert",
+        "emoji": "🔶",
+        "description": "Pyramid hopping puzzle",
+        "grid_size": (320, 200),
+        "color": "#FF5722"
     }
 }
 
