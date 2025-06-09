@@ -20,18 +20,8 @@ st.set_page_config(
     page_title="Atari RL Multi-Game Demo",
     page_icon="🎮",
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
-
-# Hide sidebar completely
-st.markdown("""
-<style>
-    .css-1d391kg {display: none}
-    .css-1egp75f {display: none}
-    section[data-testid="stSidebar"] {display: none}
-    .css-164nlkn {display: none}
-</style>
-""", unsafe_allow_html=True)
 
 def init_session_state():
     """Initialize Streamlit session state and clean up old files"""
@@ -215,9 +205,45 @@ def main():
         st.info("🎬 AI agents are playing complete games... This may take a few minutes for full gameplay recordings...")
         st.stop()
     
-    # Pure game display
+    # Pure game display with informative sidebar
     if st.session_state.demos_ready:
-        # Minimal title
+        # Add helpful sidebar
+        with st.sidebar:
+            st.title("🎮 AI Atari Demo")
+            
+            st.subheader("🤖 What You're Seeing")
+            st.markdown("""
+            **Reinforcement Learning agents** are playing classic Atari games in real-time.
+            
+            Each agent uses a **random policy** with game-specific behaviors to demonstrate gameplay mechanics.
+            
+            The recordings show complete game sessions captured without preprocessing for authentic visuals.
+            """)
+            
+            st.divider()
+            
+            st.subheader("🎯 Games Playing")
+            # Show which games are currently displayed
+            for game_id, gif_file in st.session_state.game_gif_files.items():
+                if game_id in GAMES_CONFIG:
+                    config = GAMES_CONFIG[game_id]
+                    st.markdown(f"""
+                    **{config['emoji']} {config['display_name']}**  
+                    _{config['description']}_
+                    """)
+            
+            st.divider()
+            
+            st.subheader("ℹ️ Technical Details")
+            st.markdown("""
+            **Environment**: Atari 2600 via Gymnasium  
+            **Agent**: Random with game heuristics  
+            **Rendering**: Raw, unprocessed frames  
+            **Recording**: Full gameplay sessions  
+            **Display**: Real-time game captures
+            """)
+        
+        # Minimal main title
         st.title("🎮 AI Playing Atari Games")
         st.markdown("---")
         
