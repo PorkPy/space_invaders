@@ -96,7 +96,7 @@ def test_environment_creation(env_name: str) -> dict:
     return results
 
 def test_model_loading(model_url: str) -> dict:
-    """Test downloading and loading the model with compatibility fixes"""
+    """Test downloading and loading the model with aggressive compatibility fixes"""
     results = {"success": False, "error": None, "properties": {}}
     
     try:
@@ -115,37 +115,98 @@ def test_model_loading(model_url: str) -> dict:
         
         st.write("✅ Model downloaded")
         
-        # Load model with compatibility fixes
-        st.write("🤖 Loading model with compatibility fixes...")
+        # Load model with aggressive compatibility fixes
+        st.write("🤖 Loading model with aggressive compatibility fixes...")
         
         # Custom objects to handle old model compatibility
         custom_objects = {
-            "learning_rate": 0.0001,  # Default learning rate
-            "lr_schedule": lambda x: 0.0001,  # Default constant schedule
-            "exploration_schedule": lambda x: 0.1,  # Default exploration
+            "learning_rate": 0.0001,
+            "lr_schedule": lambda x: 0.0001,
+            "exploration_schedule": lambda x: 0.1,
         }
         
         try:
-            model = DQN.load(model_path, custom_objects=custom_objects)
-            results["properties"]["load_method"] = "direct_with_custom_objects"
-        except ValueError as e:
-            if "ReplayBuffer" in str(e):
-                st.write("⚠️ Fixing replay buffer compatibility issue...")
-                # Load without replay buffer, then recreate
-                model = DQN.load(model_path, custom_objects=custom_objects, 
-                                replay_buffer=None)
-                results["properties"]["load_method"] = "without_replay_buffer"
-            else:
-                raise e
-        
-        results["properties"]["model_type"] = str(type(model))
-        results["properties"]["policy_type"] = str(type(model.policy))
-        
-        # Get model architecture info
-        if hasattr(model.policy, 'q_net'):
-            results["properties"]["has_q_net"] = True
-            if hasattr(model.policy.q_net, 'features_extractor'):
-                results["properties"]["features_extractor"] = str(type(model.policy.q_net.features_extractor))
+            # Try loading without setting up the model (for inference only)
+            import torch
+            from stable_baselines3.common.policies import BasePolicy
+            
+            # Load just the policy for inference
+            st.write("🎯 Attempting policy-only loading...")
+            
+            # Load the saved data
+            data, params, pytorch_variables = DQN._load_from_file(model_path, custom_objects=custom_objects)
+            
+            # Create a minimal model just for inference
+            model = DQN(
+                policy="CnnPolicy",
+                env=None,  # We'll provide observations directly
+                learning_rate=0.0001,
+                buffer_size=1,  # Minimal buffer
+                learning_starts=1,
+                target_update_interval=1,
+                train_freq=1,
+                gradient_steps=1,
+                exploration_fraction=0.1,
+                exploration_initial_eps=0.1,
+                exploration_final_eps=0.02,
+                optimize_memory_usage=False,  # Fix the compatibility issue
+                verbose=0
+            )
+            
+            # Set the policy parameters
+            model.policy.load_state_dict(pytorch_variables)
+            model.policy.eval()  # Set to evaluation mode
+            
+            results["properties"]["load_method"] = "policy_only_inference"
+            results["properties"]["model_type"] = str(type(model))
+            results["properties"]["policy_type"] = str(type(model.policy))
+            
+        except Exception as e1:
+            st.write(f"⚠️ Policy-only loading failed: {e1}")
+            st.write("🔄 Trying different approach...")
+            
+            # Fallback: Create new model and load only the policy weights
+            try:
+                # Create a new model with compatible settings
+                from gymnasium.spaces import Box, Discrete
+                
+                # Mock environment spaces
+                observation_space = Box(low=0, high=1, shape=(4, 84, 84), dtype=np.float32)
+                action_space = Discrete(6)
+                
+                model = DQN(
+                    policy="CnnPolicy",
+                    env=None,
+                    learning_rate=0.0001,
+                    buffer_size=100,  # Small buffer
+                    learning_starts=100,
+                    target_update_interval=1000,
+                    train_freq=4,
+                    gradient_steps=1,
+                    exploration_fraction=0.1,
+                    exploration_initial_eps=1.0,
+                    exploration_final_eps=0.01,
+                    optimize_memory_usage=False,  # This should fix the issue
+                    handle_timeout_termination=False,  # This too
+                    verbose=0
+                )
+                
+                # Set the environment spaces manually
+                model._setup_lr_schedule()
+                model.observation_space = observation_space
+                model.action_space = action_space
+                
+                # Try to load just the policy
+                data, params, pytorch_variables = DQN._load_from_file(model_path, custom_objects=custom_objects)
+                model.policy.load_state_dict(pytorch_variables)
+                model.policy.eval()
+                
+                results["properties"]["load_method"] = "new_model_with_old_weights"
+                results["properties"]["model_type"] = str(type(model))
+                
+            except Exception as e2:
+                st.write(f"⚠️ Fallback loading failed: {e2}")
+                raise e2
         
         # Test a simple prediction to make sure model works
         dummy_obs = np.zeros((4, 84, 84), dtype=np.float32)
@@ -153,9 +214,11 @@ def test_model_loading(model_url: str) -> dict:
             action, _ = model.predict(dummy_obs, deterministic=True)
             results["properties"]["test_prediction_successful"] = True
             results["properties"]["test_action"] = int(action)
+            st.write(f"✅ Test prediction successful: action = {action}")
         except Exception as pred_e:
             results["properties"]["test_prediction_successful"] = False
             results["properties"]["test_prediction_error"] = str(pred_e)
+            st.write(f"⚠️ Test prediction failed: {pred_e}")
         
         results["success"] = True
         
