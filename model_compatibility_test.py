@@ -96,7 +96,7 @@ def test_environment_creation(env_name: str) -> dict:
     return results
 
 def test_model_loading(model_url: str) -> dict:
-    """Test downloading and loading the model"""
+    """Test downloading and loading the model with compatibility fixes"""
     results = {"success": False, "error": None, "properties": {}}
     
     try:
@@ -115,9 +115,28 @@ def test_model_loading(model_url: str) -> dict:
         
         st.write("✅ Model downloaded")
         
-        # Load model
-        st.write("🤖 Loading model...")
-        model = DQN.load(model_path)
+        # Load model with compatibility fixes
+        st.write("🤖 Loading model with compatibility fixes...")
+        
+        # Custom objects to handle old model compatibility
+        custom_objects = {
+            "learning_rate": 0.0001,  # Default learning rate
+            "lr_schedule": lambda x: 0.0001,  # Default constant schedule
+            "exploration_schedule": lambda x: 0.1,  # Default exploration
+        }
+        
+        try:
+            model = DQN.load(model_path, custom_objects=custom_objects)
+            results["properties"]["load_method"] = "direct_with_custom_objects"
+        except ValueError as e:
+            if "ReplayBuffer" in str(e):
+                st.write("⚠️ Fixing replay buffer compatibility issue...")
+                # Load without replay buffer, then recreate
+                model = DQN.load(model_path, custom_objects=custom_objects, 
+                                replay_buffer=None)
+                results["properties"]["load_method"] = "without_replay_buffer"
+            else:
+                raise e
         
         results["properties"]["model_type"] = str(type(model))
         results["properties"]["policy_type"] = str(type(model.policy))
@@ -127,6 +146,16 @@ def test_model_loading(model_url: str) -> dict:
             results["properties"]["has_q_net"] = True
             if hasattr(model.policy.q_net, 'features_extractor'):
                 results["properties"]["features_extractor"] = str(type(model.policy.q_net.features_extractor))
+        
+        # Test a simple prediction to make sure model works
+        dummy_obs = np.zeros((4, 84, 84), dtype=np.float32)
+        try:
+            action, _ = model.predict(dummy_obs, deterministic=True)
+            results["properties"]["test_prediction_successful"] = True
+            results["properties"]["test_action"] = int(action)
+        except Exception as pred_e:
+            results["properties"]["test_prediction_successful"] = False
+            results["properties"]["test_prediction_error"] = str(pred_e)
         
         results["success"] = True
         
@@ -146,7 +175,7 @@ def test_model_environment_compatibility(model_url: str, env_name: str) -> dict:
     try:
         st.write("🔗 Testing model-environment compatibility...")
         
-        # Download and load model
+        # Download and load model with compatibility fixes
         with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as f:
             model_path = f.name
         
@@ -157,7 +186,21 @@ def test_model_environment_compatibility(model_url: str, env_name: str) -> dict:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
         
-        model = DQN.load(model_path)
+        # Load with compatibility fixes
+        custom_objects = {
+            "learning_rate": 0.0001,
+            "lr_schedule": lambda x: 0.0001,
+            "exploration_schedule": lambda x: 0.1,
+        }
+        
+        try:
+            model = DQN.load(model_path, custom_objects=custom_objects)
+        except ValueError as e:
+            if "ReplayBuffer" in str(e):
+                model = DQN.load(model_path, custom_objects=custom_objects, 
+                                replay_buffer=None)
+            else:
+                raise e
         
         # Create environment
         env = gym.make(env_name, render_mode=None, frameskip=1)
